@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Portal Pracownika - Grafik i Godziny</title>
   
-  <!-- Ustawienia PWA / Ikony ekranu głównego -->
+  <!-- Ustawienia PWA -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -60,17 +60,17 @@
           <span>Zaloguj się</span>
         </button>
 
-        <!-- Przycisk instalacji na ekranie logowania -->
-        <button type="button" class="btn-install-pwa hidden w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-xs transition duration-200 flex items-center justify-center gap-2 border border-slate-300">
-          <span>📲 Dodaj do ekranu głównego</span>
+        <!-- ZAWSZE WIDOCZNY PRZYCISK DODANIA DO EKRANU GŁÓWNEGO -->
+        <button type="button" class="btn-install-trigger w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition duration-200 flex items-center justify-center gap-2 border border-slate-300">
+          <span>📲 Dodaj ikonę do ekranu telefonu</span>
         </button>
       </form>
     </div>
   </main>
 
-  <!-- ==================== WIDOK PO ZALOGOWANIU (GRAFIK I TABELA) ==================== -->
+  <!-- ==================== WIDOK PO ZALOGOWANIU ==================== -->
   <div id="dashboard-view" class="hidden flex-grow flex flex-col">
-    <!-- Górny pasek nawigacyjny -->
+    <!-- Pasek górny -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
       <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
         <div>
@@ -78,8 +78,8 @@
           <span class="text-xs text-slate-500">Miesięczny wykaz czasu pracy</span>
         </div>
         <div class="flex items-center gap-2">
-          <!-- Przycisk instalacji w panelu użytkownika -->
-          <button class="btn-install-pwa hidden text-xs font-semibold text-emerald-700 hover:text-emerald-900 border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1">
+          <!-- Przycisk w nagłówku -->
+          <button type="button" class="btn-install-trigger text-xs font-semibold text-emerald-700 hover:text-emerald-900 border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1 shadow-sm">
             <span>📲 Ekran główny</span>
           </button>
           <button id="btn-logout" class="text-xs sm:text-sm font-semibold text-rose-600 hover:text-rose-800 border border-rose-200 hover:border-rose-400 bg-rose-50 px-3 py-1.5 rounded-lg transition">
@@ -132,7 +132,7 @@
                 <th class="py-3 px-3.5 whitespace-nowrap">Data</th>
                 <th class="py-3 px-3.5 whitespace-nowrap">Zmiana / Godziny</th>
                 <th class="py-3 px-3.5 text-center whitespace-nowrap">Suma</th>
-                <th class="py-3 px-3.5 whitespace-nowrap">Wystawił raport / Uwagi</th>
+                <th class="py-3 px-3.5 whitespace-nowrap">Wystawił raport</th>
               </tr>
             </thead>
             <tbody id="table-body" class="divide-y divide-slate-100">
@@ -142,6 +142,22 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- ==================== MODAL / INSTRUKCJA DODAWANIA DO EKRANU GŁÓWNEGO ==================== -->
+  <div id="install-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl space-y-4 text-center">
+      <div class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+        📲
+      </div>
+      <h3 class="text-lg font-bold text-slate-800">Dodaj do ekranu telefonu</h3>
+      <div id="install-instructions" class="text-xs text-slate-600 text-left space-y-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+        <!-- Wypełniane przez JavaScript w zależności od systemu -->
+      </div>
+      <button id="btn-close-modal" type="button" class="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg text-sm transition">
+        Rozumiem
+      </button>
+    </div>
   </div>
 
   <footer class="text-center py-4 text-xs text-slate-400">
@@ -161,40 +177,52 @@
 
     let currentUser = null;
 
-    // --- Obsługa dodawania do ekranu głównego (PWA) ---
+    // --- Obsługa instalacji na ekranie głównym ---
     let deferredPrompt = null;
-    const installButtons = document.querySelectorAll(".btn-install-pwa");
-
+    const installModal = document.getElementById("install-modal");
+    const installInstructions = document.getElementById("install-instructions");
     const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
-    const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
 
-    // Wykrywanie Android / Chrome
     window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
       deferredPrompt = e;
-      installButtons.forEach(btn => btn.classList.remove("hidden"));
     });
 
-    // Pokaż przycisk dla urządzeń iOS (Safari nie emituje zdarzenia beforeinstallprompt)
-    if (isIos() && !isInStandaloneMode()) {
-      installButtons.forEach(btn => btn.classList.remove("hidden"));
-    }
-
-    installButtons.forEach(btn => {
+    document.querySelectorAll(".btn-install-trigger").forEach(btn => {
       btn.addEventListener("click", async () => {
         if (deferredPrompt) {
           deferredPrompt.prompt();
           const { outcome } = await deferredPrompt.userChoice;
-          if (outcome === 'accepted') {
-            installButtons.forEach(b => b.classList.add("hidden"));
-          }
           deferredPrompt = null;
-        } else if (isIos()) {
-          alert("Aby dodać aplikację do ekranu głównego:\n1. Naciśnij ikonę udostępniania (kwadrat ze strzałką w górę na dolnym pasku).\n2. Wybierz opcję „Do ekranu początkowego”.");
-        } else {
-          alert("Aby dodać stronę do ekranu głównego, kliknij ikonę trzech kropek w menu przeglądarki i wybierz „Dodaj do ekranu głównego” lub „Zainstaluj aplikację”.");
+          if (outcome === 'accepted') return;
         }
+
+        // Jeśli brak natywnego promptu, pokazujemy jasną instrukcję dopasowaną do urządzenia
+        if (isIos()) {
+          installInstructions.innerHTML = `
+            <p><strong>Dla iPhone / iPad (Safari):</strong></p>
+            <ol class="list-decimal list-inside space-y-1">
+              <li>Kliknij ikonę <strong>Udostępnij</strong> (kwadrat ze strzałką w górę na dolnym pasku).</li>
+              <li>Przewiń w dół i wybierz <strong>„Do ekranu początkowego”</strong>.</li>
+              <li>Kliknij <strong>„Dodaj”</strong> w prawym górnym rogu.</li>
+            </ol>
+          `;
+        } else {
+          installInstructions.innerHTML = `
+            <p><strong>Dla telefonu z systemem Android:</strong></p>
+            <ol class="list-decimal list-inside space-y-1">
+              <li>Kliknij ikonę <strong>trzech pionowych kropek (⋮)</strong> w prawym górnym rogu przeglądarki.</li>
+              <li>Wybierz opcję <strong>„Dodaj do ekranu głównego”</strong> lub <strong>„Zainstaluj aplikację”</strong>.</li>
+              <li>Potwierdź klikając <strong>„Dodaj”</strong>.</li>
+            </ol>
+          `;
+        }
+        installModal.classList.remove("hidden");
       });
+    });
+
+    document.getElementById("btn-close-modal").addEventListener("click", () => {
+      installModal.classList.add("hidden");
     });
 
     function getShiftPriority(shiftText) {
@@ -307,6 +335,7 @@
           .ilike("imie", currentUser.firstName)
           .ilike("nazwisko", currentUser.lastName);
 
+        // Pobieramy wyłącznie potrzebne kolumny – bez kolumny powod
         const { data: absenceRows } = await client
           .from("AbsenceReports")
           .select("data_raportu, zmiana, dodal, godzina_od, godzina_do, suma_godzin")
@@ -334,7 +363,7 @@
 
         renderTable(year, monthIdx, monthlyRecords, absenceRecords);
       } catch (e) {
-        console.error("Błąd podczas ładowania danych:", e);
+        console.error("Błąd podczas pobierania danych:", e);
       } finally {
         spinner.classList.add("hidden");
         tableCard.classList.remove("opacity-40");
@@ -357,7 +386,7 @@
           monthlyRecords[dateStr].forEach(entry => {
             dayEntries.push({
               type: 'work',
-              zmiana: entry.zmiana,
+              zmiana: entry.zmiana || "-",
               od: entry.godzina_od || "-",
               do: entry.godzina_do || "-",
               suma: entry.suma_godzin,
@@ -400,6 +429,7 @@
                 <td class="py-2.5 px-3.5 text-slate-600 text-xs sm:text-sm">${item.dodal}</td>
               `;
             } else {
+              // TYLKO ZMIANA I IMIE/NAZWISKO DODAJĄCEGO (brak słowa "NIEOBECNOŚĆ", brak powodu)
               const absVal = parseFloat(String(item.suma).replace(',', '.')) || 0.0;
               totalAbsenceHours += absVal;
               const absText = Number.isInteger(absVal) ? `${absVal} godz.` : `${absVal.toFixed(1)} godz.`;
@@ -407,13 +437,12 @@
                 ? `${item.zmiana} (${item.od} - ${item.do})` 
                 : item.zmiana;
 
-              // Kolor tła wyróżniający absencję, brak napisu "NIEOBECNOŚĆ", tylko dodający w kolumnie uwag
               tr.className = "bg-rose-50/70 hover:bg-rose-100/50 transition border-b border-rose-100 text-rose-900";
               tr.innerHTML = `
                 <td class="py-2.5 px-3.5 font-medium whitespace-nowrap">${dateCellHtml}</td>
                 <td class="py-2.5 px-3.5 font-semibold whitespace-nowrap">${shiftDetails}</td>
                 <td class="py-2.5 px-3.5 text-center font-bold whitespace-nowrap">${absText}</td>
-                <td class="py-2.5 px-3.5 text-xs sm:text-sm">${item.dodal}</td>
+                <td class="py-2.5 px-3.5 text-xs sm:text-sm font-medium text-slate-700">${item.dodal}</td>
               `;
             }
             tbody.appendChild(tr);
