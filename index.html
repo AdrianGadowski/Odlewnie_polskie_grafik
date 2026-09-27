@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Portal Pracownika - Grafik i Godziny</title>
+  
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Tailwind CSS CDN dla nowoczesnego, responsywnego wyglądu -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body { font-family: 'Montserrat', sans-serif; background-color: #f3f4f6; }
+    .custom-scroll::-webkit-scrollbar { height: 6px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col justify-between">
+
+  <!-- ==================== EKRAN LOGOWANIA ==================== -->
+  <main id="login-view" class="flex-grow flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-7 border border-slate-100">
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-50 text-emerald-700 mb-3 font-bold text-xl">
+          ⏱️
+        </div>
+        <h1 class="text-2xl font-bold text-slate-800">Panel Pracownika</h1>
+        <p class="text-sm text-slate-500 mt-1">Zaloguj się, aby sprawdzić grafik i godziny</p>
+      </div>
+
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1" for="username">Login</label>
+          <input type="text" id="username" required autocomplete="username"
+                 class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-600 focus:outline-none transition text-sm"
+                 placeholder="Wpisz login" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1" for="password">Hasło</label>
+          <input type="password" id="password" required autocomplete="current-password"
+                 class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-600 focus:outline-none transition text-sm"
+                 placeholder="••••••••" />
+        </div>
+
+        <div id="login-error" class="hidden text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2.5 text-center font-medium"></div>
+
+        <button type="submit" id="btn-login"
+                class="w-full py-3 px-4 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg shadow-md transition duration-200 flex justify-center items-center">
+          <span>Zaloguj się</span>
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <!-- ==================== WIDOK PO ZALOGOWANIU (GRAFIK I TABELA) ==================== -->
+  <div id="dashboard-view" class="hidden flex-grow flex flex-col">
+    <!-- Górny pasek nawigacyjny -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
+      <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-800" id="user-display-name">Pracownik</h2>
+          <span class="text-xs text-slate-500">Miesięczny wykaz czasu pracy</span>
+        </div>
+        <button id="btn-logout" class="text-xs sm:text-sm font-semibold text-rose-600 hover:text-rose-800 border border-rose-200 hover:border-rose-400 bg-rose-50 px-3 py-1.5 rounded-lg transition">
+          Wyloguj
+        </button>
+      </div>
+    </header>
+
+    <!-- Główna zawartość -->
+    <main class="max-w-5xl mx-auto w-full p-4 sm:p-6 space-y-5">
+      <!-- Filtry wyboru daty -->
+      <section class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex flex-wrap gap-4 items-center justify-between">
+        <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <div>
+            <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Miesiąc</label>
+            <select id="select-month" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium focus:ring-2 focus:ring-emerald-600 outline-none"></select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold uppercase text-slate-500 mb-1">Rok</label>
+            <select id="select-year" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium focus:ring-2 focus:ring-emerald-600 outline-none"></select>
+          </div>
+        </div>
+
+        <!-- Podsumowania godzinowe -->
+        <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <div class="bg-emerald-50 border border-emerald-100 px-3.5 py-2 rounded-lg text-right flex-1 sm:flex-initial">
+            <div class="text-[10px] font-bold uppercase text-emerald-800">Czas pracy</div>
+            <div class="text-base font-extrabold text-emerald-700" id="summary-work">0 godz.</div>
+          </div>
+          <div class="bg-rose-50 border border-rose-100 px-3.5 py-2 rounded-lg text-right flex-1 sm:flex-initial">
+            <div class="text-[10px] font-bold uppercase text-rose-800">Nieobecności</div>
+            <div class="text-base font-extrabold text-rose-600" id="summary-absence">0 godz.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stan ładowania -->
+      <div id="loading-spinner" class="hidden text-center py-12">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-emerald-600 border-t-transparent"></div>
+        <p class="text-sm font-medium text-slate-500 mt-2">Pobieranie danych z bazy...</p>
+      </div>
+
+      <!-- Karta tabeli -->
+      <section id="table-card" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto custom-scroll">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-800 text-white text-xs uppercase tracking-wider">
+                <th class="py-3 px-3.5 whitespace-nowrap">Data</th>
+                <th class="py-3 px-3.5 whitespace-nowrap">Zmiana / Godziny</th>
+                <th class="py-3 px-3.5 text-center whitespace-nowrap">Suma</th>
+                <th class="py-3 px-3.5 whitespace-nowrap">Wystawił raport / Uwagi</th>
+              </tr>
+            </thead>
+            <tbody id="table-body" class="divide-y divide-slate-100">
+              <!-- Wiersze generowane dynamicznie -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="text-center py-4 text-xs text-slate-400">
+    &copy; Panel ewidencji czasu pracy
+  </footer>
+
+  <!-- ==================== SKRYPT LOGIKI ==================== -->
+  <script>
+    // 1. Inicjalizacja połączenia Supabase z Twojego pliku db.py
+    const SUPABASE_URL = "https://puqqxdqwhhhlrihnoftn.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_8pqNzzdMVwdk9Plz48an2Q_GPEBar14";
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const MONTHS = [
+      "Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec",
+      "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"
+    ];
+
+    let currentUser = null; // Przechowuje zalogowanego użytkownika (imie, nazwisko)
+
+    // Funkcja sortowania zmian (zgodna z employee_list.py)
+    function getShiftPriority(shiftText) {
+      if (!shiftText) return 4;
+      const t = String(shiftText).toUpperCase().trim();
+      if (t.includes("I") && !t.includes("II") && !t.includes("III")) return 1;
+      if (t.includes("1")) return 1;
+      if (t.includes("II") && !t.includes("III")) return 2;
+      if (t.includes("2")) return 2;
+      if (t.includes("III") || t.includes("3")) return 3;
+      return 4;
+    }
+
+    // Inicjalizacja selectów (Miesiące i Lata)
+    const selectMonth = document.getElementById("select-month");
+    const selectYear = document.getElementById("select-year");
+    const now = new Date();
+
+    MONTHS.forEach((m, idx) => {
+      const opt = document.createElement("option");
+      opt.value = idx + 1;
+      opt.textContent = m;
+      if (idx === now.getMonth()) opt.selected = true;
+      selectMonth.appendChild(opt);
+    });
+
+    for (let y = 2024; y <= 2030; y++) {
+      const opt = document.createElement("option");
+      opt.value = y;
+      opt.textContent = y;
+      if (y === now.getFullYear()) opt.selected = true;
+      selectYear.appendChild(opt);
+    }
+
+    // Obsługa logowania
+    const loginForm = document.getElementById("login-form");
+    const loginError = document.getElementById("login-error");
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      loginError.classList.add("hidden");
+      const btn = document.getElementById("btn-login");
+      btn.disabled = true;
+      btn.classList.add("opacity-60");
+
+      const loginInput = document.getElementById("username").value.trim();
+      const passwordInput = document.getElementById("password").value.trim();
+
+      try {
+        // Zapytanie do Twojej tabeli web_user
+        const { data, error } = await client
+          .from("web_user")
+          .select("name, last_name, login, password")
+          .eq("login", loginInput)
+          .eq("password", passwordInput)
+          .single();
+
+        if (error || !data) {
+          throw new Error("Nieprawidłowy login lub hasło.");
+        }
+
+        currentUser = {
+          firstName: (data.name || "").trim(),
+          lastName: (data.last_name || "").trim()
+        };
+
+        // Zapis do sessionStorage (utrzymuje sesję po odświeżeniu strony)
+        sessionStorage.setItem("user_session", JSON.stringify(currentUser));
+        showDashboard();
+
+      } catch (err) {
+        loginError.textContent = err.message || "Wystąpił błąd logowania.";
+        loginError.classList.remove("hidden");
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove("opacity-60");
+      }
+    });
+
+    // Przełączanie widoków
+    function showDashboard() {
+      document.getElementById("login-view").classList.add("hidden");
+      document.getElementById("dashboard-view").classList.remove("hidden");
+      document.getElementById("user-display-name").textContent = `${currentUser.firstName} ${currentUser.lastName}`;
+      loadMonthlyData();
+    }
+
+    // Obsługa wylogowania
+    document.getElementById("btn-logout").addEventListener("click", () => {
+      sessionStorage.removeItem("user_session");
+      currentUser = null;
+      document.getElementById("dashboard-view").classList.add("hidden");
+      document.getElementById("login-view").classList.remove("hidden");
+      document.getElementById("login-form").reset();
+    });
+
+    selectMonth.addEventListener("change", loadMonthlyData);
+    selectYear.addEventListener("change", loadMonthlyData);
+
+    // Pobieranie wpisów z bazy WorkReports i AbsenceReports
+    async function loadMonthlyData() {
+      if (!currentUser) return;
+
+      const year = parseInt(selectYear.value);
+      const monthIdx = parseInt(selectMonth.value);
+      const suffix = `.${String(monthIdx).padStart(2, '0')}.${year}`;
+
+      const spinner = document.getElementById("loading-spinner");
+      const tableCard = document.getElementById("table-card");
+      spinner.classList.remove("hidden");
+      tableCard.classList.add("opacity-40");
+
+      try {
+        // 1. Pobranie godzin pracy
+        const { data: workRows, error: workErr } = await client
+          .from("WorkReports")
+          .select("data_raportu, zmiana, godzina_od, godzina_do, suma_godzin, dodal")
+          .ilike("imie", currentUser.firstName)
+          .ilike("nazwisko", currentUser.lastName);
+
+        // 2. Pobranie nieobecności
+        const { data: absenceRows, error: absErr } = await client
+          .from("AbsenceReports")
+          .select("data_raportu, powod, zmiana, dodal, godzina_od, godzina_do, suma_godzin")
+          .ilike("imie", currentUser.firstName)
+          .ilike("nazwisko", currentUser.lastName);
+
+        const monthlyRecords = {};
+        const absenceRecords = {};
+
+        (workRows || []).forEach(row => {
+          const d = (row.data_raportu || "").trim();
+          if (d.endsWith(suffix)) {
+            if (!monthlyRecords[d]) monthlyRecords[d] = [];
+            monthlyRecords[d].push(row);
+          }
+        });
+
+        (absenceRows || []).forEach(row => {
+          const d = (row.data_raportu || "").trim();
+          if (d.endsWith(suffix)) {
+            if (!absenceRecords[d]) absenceRecords[d] = [];
+            absenceRecords[d].push(row);
+          }
+        });
+
+        renderTable(year, monthIdx, monthlyRecords, absenceRecords);
+      } catch (e) {
+        console.error("Błąd podczas ładowania danych:", e);
+      } finally {
+        spinner.classList.add("hidden");
+        tableCard.classList.remove("opacity-40");
+      }
+    }
+
+    // Renderowanie tabeli
+    function renderTable(year, monthIdx, monthlyRecords, absenceRecords) {
+      const tbody = document.getElementById("table-body");
+      tbody.innerHTML = "";
+
+      const daysInMonth = new Date(year, monthIdx, 0).getDate();
+      let totalWorkHours = 0.0;
+      let totalAbsenceHours = 0.0;
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${String(day).padStart(2, '0')}.${String(monthIdx).padStart(2, '0')}.${year}`;
+        const dayEntries = [];
+
+        if (monthlyRecords[dateStr]) {
+          monthlyRecords[dateStr].forEach(entry => {
+            dayEntries.push({
+              type: 'work',
+              zmiana: entry.zmiana,
+              od: entry.godzina_od || "-",
+              do: entry.godzina_do || "-",
+              suma: entry.suma_godzin,
+              dodal: entry.dodal || "-"
+            });
+          });
+        }
+
+        if (absenceRecords[dateStr]) {
+          absenceRecords[dateStr].forEach(entry => {
+            dayEntries.push({
+              type: 'absence',
+              zmiana: entry.zmiana || "",
+              od: entry.godzina_od || "-",
+              do: entry.godzina_do || "-",
+              suma: entry.suma_godzin !== null && entry.suma_godzin !== undefined ? entry.suma_godzin : 8.0,
+              powod: entry.powod || "Nieobecność",
+              dodal: entry.dodal || "-"
+            });
+          });
+        }
+
+        dayEntries.sort((a, b) => getShiftPriority(a.zmiana) - getShiftPriority(b.zmiana));
+
+        if (dayEntries.length > 0) {
+          dayEntries.forEach((item, idx) => {
+            const tr = document.createElement("tr");
+            const isFirst = (idx === 0);
+            const dateCellHtml = isFirst ? `<span class="font-bold">${dateStr}</span>` : "";
+
+            if (item.type === 'work') {
+              const hVal = parseFloat(String(item.suma).replace(',', '.')) || 0.0;
+              totalWorkHours += hVal;
+              const hText = Number.isInteger(hVal) ? `${hVal} godz.` : `${hVal.toFixed(1)} godz.`;
+
+              tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+              tr.innerHTML = `
+                <td class="py-2.5 px-3.5 text-slate-800 whitespace-nowrap">${dateCellHtml}</td>
+                <td class="py-2.5 px-3.5 font-semibold text-blue-700 whitespace-nowrap">${item.zmiana} (${item.od} - ${item.do})</td>
+                <td class="py-2.5 px-3.5 text-center font-bold text-slate-700 whitespace-nowrap">${hText}</td>
+                <td class="py-2.5 px-3.5 text-slate-600 text-xs sm:text-sm">${item.dodal}</td>
+              `;
+            } else {
+              const absVal = parseFloat(String(item.suma).replace(',', '.')) || 0.0;
+              totalAbsenceHours += absVal;
+              const absText = Number.isInteger(absVal) ? `${absVal} godz.` : `${absVal.toFixed(1)} godz.`;
+              const shiftInfo = item.zmiana ? ` (${item.zmiana})` : "";
+              const hoursRange = item.od !== "-" ? ` (${item.od} - ${item.do})` : "";
+
+              tr.className = "bg-rose-50/70 hover:bg-rose-100/50 transition border-b border-rose-100 text-rose-900";
+              tr.innerHTML = `
+                <td class="py-2.5 px-3.5 font-medium whitespace-nowrap">${dateCellHtml}</td>
+                <td class="py-2.5 px-3.5 font-bold whitespace-nowrap">⚠️ NIEOBECNOŚĆ${shiftInfo}${hoursRange}</td>
+                <td class="py-2.5 px-3.5 text-center font-bold whitespace-nowrap">${absText}</td>
+                <td class="py-2.5 px-3.5 text-xs sm:text-sm">${item.dodal} – <span class="italic font-medium">${item.powod}</span></td>
+              `;
+            }
+            tbody.appendChild(tr);
+          });
+        } else {
+          // Dzień wolny / brak wpisu
+          const tr = document.createElement("tr");
+          tr.className = "hover:bg-slate-50 transition border-b border-slate-100 text-slate-400";
+          tr.innerHTML = `
+            <td class="py-2.5 px-3.5 whitespace-nowrap">${dateStr}</td>
+            <td class="py-2.5 px-3.5 italic text-xs">Dzień wolny / Brak wpisu</td>
+            <td class="py-2.5 px-3.5 text-center text-xs">0 godz.</td>
+            <td class="py-2.5 px-3.5 text-xs">-</td>
+          `;
+          tbody.appendChild(tr);
+        }
+      }
+
+      // Aktualizacja łącznych godzin w boksach
+      const workStr = Number.isInteger(totalWorkHours) ? totalWorkHours : totalWorkHours.toFixed(1);
+      const absStr = Number.isInteger(totalAbsenceHours) ? totalAbsenceHours : totalAbsenceHours.toFixed(1);
+      document.getElementById("summary-work").textContent = `${workStr} godz.`;
+      document.getElementById("summary-absence").textContent = `${absStr} godz.`;
+    }
+
+    // Auto-logowanie przy odświeżeniu strony w telefonie/przeglądarce
+    window.addEventListener("DOMContentLoaded", () => {
+      const savedSession = sessionStorage.getItem("user_session");
+      if (savedSession) {
+        try {
+          currentUser = JSON.parse(savedSession);
+          showDashboard();
+        } catch (e) {
+          sessionStorage.removeItem("user_session");
+        }
+      }
+    });
+  </script>
+</body>
+</html>
