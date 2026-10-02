@@ -556,10 +556,12 @@
           headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
           body: JSON.stringify({
             _subject: `Zgłoszenie nieobecności: ${currentUser.firstName} ${currentUser.lastName} (${formattedDate})`,
-            Pracownik: `${currentUser.firstName} ${currentUser.lastName}`,
-            Data_nieobecnosci: formattedDate,
-            Godziny: `${timeFrom} - ${timeTo} (${totalHours.toFixed(1)} godz.)`,
-            Powod: reasonVal
+            _template: "box", // Wyłącza domyślny szablon tabeli na rzecz czystego bloku
+            "Komunikat": "Wpłynęło nowe zgłoszenie nieobecności z panelu pracownika.",
+            "Pracownik": `${currentUser.firstName} ${currentUser.lastName}`,
+            "Data nieobecności": formattedDate,
+            "Godziny": `${timeFrom} - ${timeTo} (${totalHours.toFixed(1)} godz.)`,
+            "Powód": reasonVal
           })
         });
 
