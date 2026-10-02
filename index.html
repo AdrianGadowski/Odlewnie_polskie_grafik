@@ -19,7 +19,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   
   <style>
     body { font-family: 'Montserrat', sans-serif; background-color: #f3f4f6; }
@@ -513,20 +513,12 @@
         }
 
         // 2. Wysłanie powiadomienia e-mail do przełożonego
-        // Bezpieczna wysyłka z przeglądarki na e-mail gadowskiadrian@gmail.com
-        const emailContent = {
-          to: "gadowskiadrian@gmail.com",
-          subject: `Zgłoszenie nieobecności: ${currentUser.firstName} ${currentUser.lastName} (${dateVal})`,
-          body: `Pracownik: ${currentUser.firstName} ${currentUser.lastName}\nData nieobecności: ${dateVal}\nZmiana: ${shiftVal} (${shiftHours.od} - ${shiftHours.do})\nPowód: ${reasonVal}\nData zgłoszenia: ${new Date().toLocaleString('pl-PL')}`
-        };
-
         try {
-          // Wywołanie webhooka / endpointu wysyłającego z użyciem podanych poświadczeń SMTP
           await fetch("https://formsubmit.co/ajax/gadowskiadrian@gmail.com", {
             method: "POST",
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({
-              _subject: emailContent.subject,
+              _subject: `Zgłoszenie nieobecności: ${currentUser.firstName} ${currentUser.lastName} (${dateVal})`,
               Pracownik: `${currentUser.firstName} ${currentUser.lastName}`,
               Data_nieobecnosci: dateVal,
               Zmiana: `${shiftVal} (${shiftHours.od} - ${shiftHours.do})`,
@@ -554,85 +546,65 @@
       }
     });
 
-    // --- POBIERANIE HARMONOGRAMU TYGODNIOWEGO (week_XX) ---
+    // --- POBIERANIE HARMONOGRAMU TYGODNIOWEGO Z KOLUMN TABELI web_user ---
     async function loadWeeklySchedules() {
+      if (!currentUser) return;
+
       const today = new Date();
       const currentWeek = getWeekNumber(today);
       const nextWeek = currentWeek + 1;
 
+      const colCurrent = `week_${currentWeek}`;
+      const colNext = `week_${nextWeek}`;
+
       document.getElementById("badge-current-week").textContent = `Tydzień ${currentWeek}`;
       document.getElementById("badge-next-week").textContent = `Tydzień ${nextWeek}`;
 
-      await renderWeekCard(`week_${currentWeek}`, "container-current-week", "Aktualny tydzień");
-      await renderWeekCard(`week_${nextWeek}`, "container-next-week", "Następny tydzień");
-    }
+      const containerCurrent = document.getElementById("container-current-week");
+      const containerNext = document.getElementById("container-next-week");
 
-    async function renderWeekCard(tableName, containerId, labelTitle) {
-      const container = document.getElementById(containerId);
       try {
         const { data, error } = await client
-          .from(tableName)
+          .from("web_user")
           .select("*")
-          .ilike("imie", currentUser.firstName)
-          .ilike("nazwisko", currentUser.lastName);
+          .eq("login", currentUser.login)
+          .single();
 
-        if (error || !data || data.length === 0) {
-          container.innerHTML = `<p class="text-xs text-slate-400 italic">Brak opublikowanego grafiku w tabeli <strong>${tableName}</strong> dla Twojego konta.</p>`;
+        if (error || !data) {
+          containerCurrent.innerHTML = `<p class="text-xs text-rose-500 italic">Nie udało się pobrać grafiku.</p>`;
+          containerNext.innerHTML = `<p class="text-xs text-rose-500 italic">Nie udało się pobrać grafiku.</p>`;
           return;
         }
 
-        const row = data[0];
-        const daysMap = [
-          { key: "poniedzialek", label: "Poniedziałek", short: "Pn" },
-          { key: "wtorek", label: "Wtorek", short: "Wt" },
-          { key: "sroda", label: "Środa", short: "Śr" },
-          { key: "czwartek", label: "Czwartek", short: "Czw" },
-          { key: "piatek", label: "Piątek", short: "Pt" },
-          { key: "sobota", label: "Sobota", short: "Sob" },
-          { key: "niedziela", label: "Niedziela", short: "Nd" }
-        ];
-
-        let html = `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">`;
-        let hasAnyDay = false;
-
-        daysMap.forEach(d => {
-          let val = row[d.key] || row[d.label] || row[d.short] || "-";
-          if (val && val !== "-") {
-            hasAnyDay = true;
-            html += `
-              <div class="bg-slate-50 border border-slate-200 rounded-lg p-2 text-center">
-                <span class="block text-[11px] font-bold text-slate-500 uppercase">${d.short}</span>
-                <span class="block text-xs font-bold text-emerald-800 mt-0.5">${val}</span>
-              </div>
-            `;
-          } else {
-            html += `
-              <div class="bg-slate-50/50 border border-slate-100 rounded-lg p-2 text-center text-slate-400">
-                <span class="block text-[11px] font-bold uppercase">${d.short}</span>
-                <span class="block text-xs mt-0.5">Wolne</span>
-              </div>
-            `;
-          }
-        });
-        html += `</div>`;
-
-        // Jeśli tabela ma zbiorcze kolumny z godzinami od-do (np. godzina_od, godzina_do)
-        if (row.godzina_od && row.godzina_do) {
-          html = `
-            <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
-              <span class="text-xs text-emerald-700 uppercase font-semibold">Planowane godziny pracy</span>
-              <div class="text-lg font-bold text-emerald-900 mt-1">Od ${row.godzina_od} do ${row.godzina_do}</div>
-              ${row.zmiana ? `<div class="text-xs text-slate-500 mt-0.5">Zmiana: ${row.zmiana}</div>` : ''}
-            </div>
-            ${hasAnyDay ? `<div class="mt-3">${html}</div>` : ''}
-          `;
-        }
-
-        container.innerHTML = html;
+        renderWeekColumnCard(containerCurrent, data[colCurrent], `Tydzień ${currentWeek}`);
+        renderWeekColumnCard(containerNext, data[colNext], `Tydzień ${nextWeek}`);
 
       } catch (err) {
-        container.innerHTML = `<p class="text-xs text-slate-400 italic">Brak wpisów w tabeli ${tableName}.</p>`;
+        console.error("Błąd podczas ładowania grafiku:", err);
+        containerCurrent.innerHTML = `<p class="text-xs text-slate-400 italic">Błąd ładowania danych.</p>`;
+        containerNext.innerHTML = `<p class="text-xs text-slate-400 italic">Błąd ładowania danych.</p>`;
       }
+    }
+
+    function renderWeekColumnCard(container, scheduleValue, labelWeek) {
+      const val = (scheduleValue || "").trim();
+
+      if (!val || val === "-" || val.toLowerCase() === "brak" || val.toLowerCase() === "wolne") {
+        container.innerHTML = `
+          <div class="p-4 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-center">
+            <span class="text-xs text-slate-400 font-medium">Brak przypisanych godzin na ten tydzień (Wolne)</span>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="p-4 bg-emerald-50/60 border border-emerald-200 rounded-xl text-center space-y-1">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Godziny pracy (Pn – Pt)</span>
+          <div class="text-xl sm:text-2xl font-black text-emerald-900 tracking-tight">${val}</div>
+          <span class="text-[11px] text-slate-500 block pt-1">Harmonogram ustalony dla: ${labelWeek}</span>
+        </div>
+      `;
     }
 
     // --- TABELA MIESIĘCZNA ---
