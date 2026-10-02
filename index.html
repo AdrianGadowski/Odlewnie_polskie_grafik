@@ -98,7 +98,7 @@
     <!-- Główna zawartość -->
     <main class="max-w-5xl mx-auto w-full p-4 sm:p-6 space-y-6">
       
-      <!-- SEKCJA HARMONOGRAMU TYGODNIOWEGO (Aktualny + Przyszły) -->
+      <!-- SEKCJA HARMONOGRAMU TYGODNIOWEGO -->
       <section class="space-y-3">
         <h3 class="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
           <span>📅 Plan Pracy (Harmonogram Tygodniowy)</span>
@@ -208,23 +208,29 @@
     <div class="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4">
       <div class="text-center">
         <h3 class="text-lg font-bold text-slate-800">Zgłoś nieobecność</h3>
-        <p class="text-xs text-slate-500">Zgłoszenie zostanie wysłane do przełożonego oraz zapisane w systemie</p>
+        <p class="text-xs text-slate-500">Zgłoszenie zostanie wysłane w wiadomości e-mail do przełożonego</p>
       </div>
 
       <form id="absence-form" class="space-y-3">
         <div>
-          <label class="block text-xs font-semibold uppercase text-slate-600 mb-1" for="absence-date">Data (DD.MM.RRRR)</label>
-          <input type="text" id="absence-date" required pattern="\d{2}\.\d{2}\.\d{4}" placeholder="np. 05.10.2026"
-                 class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none" />
+          <label class="block text-xs font-semibold uppercase text-slate-600 mb-1" for="absence-date">Wybierz datę</label>
+          <input type="date" id="absence-date" required
+                 class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none bg-white cursor-pointer" />
         </div>
 
-        <div>
-          <label class="block text-xs font-semibold uppercase text-slate-600 mb-1" for="absence-shift">Zmiana</label>
-          <select id="absence-shift" required class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none bg-white">
-            <option value="I">Zmiana I (06:00 - 14:00)</option>
-            <option value="II">Zmiana II (14:00 - 22:00)</option>
-            <option value="III">Zmiana III (22:00 - 06:00)</option>
-          </select>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-600 mb-1" for="absence-time-from">Godzina Od</label>
+            <select id="absence-time-from" required class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none bg-white"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-600 mb-1" for="absence-time-to">Godzina Do</label>
+            <select id="absence-time-to" required class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none bg-white"></select>
+          </div>
+        </div>
+
+        <div class="text-right text-xs text-slate-500 font-medium">
+          Łączny czas: <span id="absence-hours-calc" class="font-bold text-amber-700">8.0 godz.</span>
         </div>
 
         <div>
@@ -237,7 +243,7 @@
 
         <div class="flex gap-2 pt-2">
           <button type="button" id="btn-close-absence" class="w-1/2 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg text-xs transition">Anuluj</button>
-          <button type="submit" id="btn-submit-absence" class="w-1/2 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs transition">Wyślij zgłoszenie</button>
+          <button type="submit" id="btn-submit-absence" class="w-1/2 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs transition">Wyślij e-mail</button>
         </div>
       </form>
     </div>
@@ -269,6 +275,48 @@
     ];
 
     let currentUser = null;
+
+    // Generowanie listy godzin co 30 min (00:00 - 23:30)
+    function populateTimeOptions(selectEl, defaultTime) {
+      selectEl.innerHTML = "";
+      for (let h = 0; h < 24; h++) {
+        for (let m of [0, 30]) {
+          const hh = String(h).padStart(2, '0');
+          const mm = String(m).padStart(2, '0');
+          const val = `${hh}:${mm}`;
+          const opt = document.createElement("option");
+          opt.value = val;
+          opt.textContent = val;
+          if (val === defaultTime) opt.selected = true;
+          selectEl.appendChild(opt);
+        }
+      }
+    }
+
+    const selectFrom = document.getElementById("absence-time-from");
+    const selectTo = document.getElementById("absence-time-to");
+    const calcHoursDisplay = document.getElementById("absence-hours-calc");
+
+    populateTimeOptions(selectFrom, "06:00");
+    populateTimeOptions(selectTo, "14:00");
+
+    function calculateAbsenceHours(fromStr, toStr) {
+      const [h1, m1] = fromStr.split(':').map(Number);
+      const [h2, m2] = toStr.split(':').map(Number);
+      let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+      if (diff <= 0) {
+        diff += 24 * 60; // uwzględnienie przejścia przez północ (np. 22:00 -> 06:00)
+      }
+      return diff / 60;
+    }
+
+    function updateTotalAbsencePreview() {
+      const hours = calculateAbsenceHours(selectFrom.value, selectTo.value);
+      calcHoursDisplay.textContent = `${hours.toFixed(1)} godz.`;
+    }
+
+    selectFrom.addEventListener("change", updateTotalAbsencePreview);
+    selectTo.addEventListener("change", updateTotalAbsencePreview);
 
     // --- Narzędzie do obliczania numeru tygodnia ISO ---
     function getWeekNumber(d) {
@@ -458,7 +506,7 @@
       }
     });
 
-    // --- ZGŁASZANIE NIEOBECNOŚCI I WYSYŁANIE EMAIL ---
+    // --- ZGŁASZANIE NIEOBECNOŚCI (TYLKO E-MAIL) ---
     const absenceModal = document.getElementById("absence-modal");
     const absenceForm = document.getElementById("absence-form");
     const absenceMsg = document.getElementById("absence-msg");
@@ -466,11 +514,17 @@
     document.getElementById("btn-open-absence").addEventListener("click", () => {
       absenceForm.reset();
       absenceMsg.className = "hidden text-xs p-2 rounded-lg text-center font-medium";
+      
       const today = new Date();
-      const dd = String(today.getDate()).padStart(2, '0');
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
       const yyyy = today.getFullYear();
-      document.getElementById("absence-date").value = `${dd}.${mm}.${yyyy}`;
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      document.getElementById("absence-date").value = `${yyyy}-${mm}-${dd}`;
+      
+      selectFrom.value = "06:00";
+      selectTo.value = "14:00";
+      updateTotalAbsencePreview();
+
       absenceModal.classList.remove("hidden");
     });
 
@@ -480,59 +534,42 @@
 
     absenceForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const dateVal = document.getElementById("absence-date").value.trim();
-      const shiftVal = document.getElementById("absence-shift").value;
+      const rawDate = document.getElementById("absence-date").value;
+      const timeFrom = selectFrom.value;
+      const timeTo = selectTo.value;
       const reasonVal = document.getElementById("absence-reason").value.trim();
       const submitBtn = document.getElementById("btn-submit-absence");
+
+      if (!rawDate) return;
+
+      const [y, m, d] = rawDate.split("-");
+      const formattedDate = `${d}.${m}.${y}`;
+      const totalHours = calculateAbsenceHours(timeFrom, timeTo);
 
       submitBtn.disabled = true;
       submitBtn.textContent = "Wysyłanie...";
 
-      let shiftHours = { od: "06:00", do: "14:00" };
-      if (shiftVal === "II") shiftHours = { od: "14:00", do: "22:00" };
-      if (shiftVal === "III") shiftHours = { od: "22:00", do: "06:00" };
-
       try {
-        // 1. Zapis do bazy Supabase (AbsenceReports)
-        const { error: dbError } = await client
-          .from("AbsenceReports")
-          .insert([{
-            imie: currentUser.firstName,
-            nazwisko: currentUser.lastName,
-            data_raportu: dateVal,
-            zmiana: `Zmiana ${shiftVal}`,
-            godzina_od: shiftHours.od,
-            godzina_do: shiftHours.do,
-            suma_godzin: 8.0,
-            powod: reasonVal,
-            dodal: `Zgłoszenie: ${currentUser.firstName} ${currentUser.lastName}`
-          }]);
+        // Wysłanie wyłącznie powiadomienia e-mail
+        const response = await fetch("https://formsubmit.co/ajax/gadowskiadrian@gmail.com", {
+          method: "POST",
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({
+            _subject: `Zgłoszenie nieobecności: ${currentUser.firstName} ${currentUser.lastName} (${formattedDate})`,
+            Pracownik: `${currentUser.firstName} ${currentUser.lastName}`,
+            Data_nieobecnosci: formattedDate,
+            Godziny: `${timeFrom} - ${timeTo} (${totalHours.toFixed(1)} godz.)`,
+            Powod: reasonVal
+          })
+        });
 
-        if (dbError) {
-          console.warn("Uwaga Supabase insert:", dbError);
+        if (!response.ok) {
+          throw new Error("Wystąpił problem z wysyłką wiadomości e-mail.");
         }
 
-        // 2. Wysłanie powiadomienia e-mail do przełożonego
-        try {
-          await fetch("https://formsubmit.co/ajax/gadowskiadrian@gmail.com", {
-            method: "POST",
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({
-              _subject: `Zgłoszenie nieobecności: ${currentUser.firstName} ${currentUser.lastName} (${dateVal})`,
-              Pracownik: `${currentUser.firstName} ${currentUser.lastName}`,
-              Data_nieobecnosci: dateVal,
-              Zmiana: `${shiftVal} (${shiftHours.od} - ${shiftHours.do})`,
-              Powod: reasonVal
-            })
-          });
-        } catch (mailErr) {
-          console.log("Email status:", mailErr);
-        }
-
-        absenceMsg.textContent = "Zgłoszenie nieobecności zostało wysłane i zarejestrowane!";
+        absenceMsg.textContent = "Zgłoszenie nieobecności zostało wysłane na e-mail przełożonego!";
         absenceMsg.className = "text-xs p-2 rounded-lg text-center font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 block";
         
-        loadMonthlyData();
         setTimeout(() => {
           absenceModal.classList.add("hidden");
         }, 1500);
@@ -542,7 +579,7 @@
         absenceMsg.className = "text-xs p-2 rounded-lg text-center font-medium bg-rose-50 text-rose-600 border border-rose-200 block";
       } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = "Wyślij zgłoszenie";
+        submitBtn.textContent = "Wyślij e-mail";
       }
     });
 
@@ -737,7 +774,7 @@
               const absVal = parseFloat(String(item.suma).replace(',', '.')) || 0.0;
               totalAbsenceHours += absVal;
               const absText = Number.isInteger(absVal) ? `${absVal} godz.` : `${absVal.toFixed(1)} godz.`;
-              const shiftDetails = (item.od !== "-" && item.do !== "-") 
+              const shiftDetails = (item.od !== "-" && item.do !== "-" && !item.zmiana.includes(item.od)) 
                 ? `${item.zmiana} (${item.od} - ${item.do})` 
                 : item.zmiana;
 
