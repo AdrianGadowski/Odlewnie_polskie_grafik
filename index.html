@@ -15,6 +15,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- EmailJS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -60,7 +62,6 @@
           <span>Zaloguj się</span>
         </button>
 
-        <!-- ZAWSZE WIDOCZNY PRZYCISK DODANIA DO EKRANU GŁÓWNEGO -->
         <button type="button" class="btn-install-trigger w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition duration-200 flex items-center justify-center gap-2 border border-slate-300">
           <span>📲 Dodaj ikonę do ekranu telefonu</span>
         </button>
@@ -72,17 +73,22 @@
   <div id="dashboard-view" class="hidden flex-grow flex flex-col">
     <!-- Pasek górny -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
-      <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
         <div>
           <h2 class="text-base sm:text-lg font-bold text-slate-800" id="user-display-name">Pracownik</h2>
-          <span class="text-xs text-slate-500">Miesięczny wykaz czasu pracy</span>
+          <span class="text-xs text-slate-500">Miesięczny wykaz i harmonogram pracy</span>
         </div>
-        <div class="flex items-center gap-2">
-          <!-- Przycisk w nagłówku -->
-          <button type="button" class="btn-install-trigger text-xs font-semibold text-emerald-700 hover:text-emerald-900 border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1 shadow-sm">
-            <span>📲 Ekran główny</span>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btn-open-absence" class="text-xs font-semibold text-amber-700 hover:text-amber-900 border border-amber-300 bg-amber-50 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1 shadow-sm">
+            <span>📝 Zgłoś nieobecność</span>
           </button>
-          <button id="btn-logout" class="text-xs sm:text-sm font-semibold text-rose-600 hover:text-rose-800 border border-rose-200 hover:border-rose-400 bg-rose-50 px-3 py-1.5 rounded-lg transition">
+          <button id="btn-open-password" class="text-xs font-semibold text-slate-700 hover:text-slate-900 border border-slate-300 bg-slate-50 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1 shadow-sm">
+            <span>🔑 Zmień hasło</span>
+          </button>
+          <button type="button" class="btn-install-trigger text-xs font-semibold text-emerald-700 hover:text-emerald-900 border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1 shadow-sm">
+            <span>📲 Ekran</span>
+          </button>
+          <button id="btn-logout" class="text-xs font-semibold text-rose-600 hover:text-rose-800 border border-rose-200 hover:border-rose-400 bg-rose-50 px-3 py-1.5 rounded-lg transition">
             Wyloguj
           </button>
         </div>
@@ -90,8 +96,39 @@
     </header>
 
     <!-- Główna zawartość -->
-    <main class="max-w-5xl mx-auto w-full p-4 sm:p-6 space-y-5">
-      <!-- Filtry wyboru daty -->
+    <main class="max-w-5xl mx-auto w-full p-4 sm:p-6 space-y-6">
+      
+      <!-- SEKCJA HARMONOGRAMU TYGODNIOWEGO (Aktualny + Przyszły) -->
+      <section class="space-y-3">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+          <span>📅 Plan Pracy (Harmonogram Tygodniowy)</span>
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Bieżący tydzień -->
+          <div class="bg-white rounded-xl shadow-sm border border-emerald-200 overflow-hidden">
+            <div class="bg-emerald-700 text-white px-4 py-2.5 flex justify-between items-center">
+              <span class="font-bold text-sm" id="title-current-week">Aktualny Tydzień</span>
+              <span class="text-xs bg-emerald-800/80 px-2 py-0.5 rounded-md font-semibold" id="badge-current-week">Tydzień --</span>
+            </div>
+            <div class="p-4" id="container-current-week">
+              <p class="text-xs text-slate-400 italic">Ładowanie grafiku tygodniowego...</p>
+            </div>
+          </div>
+
+          <!-- Następny tydzień -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="bg-slate-800 text-white px-4 py-2.5 flex justify-between items-center">
+              <span class="font-bold text-sm" id="title-next-week">Przyszły Tydzień</span>
+              <span class="text-xs bg-slate-700 px-2 py-0.5 rounded-md font-semibold" id="badge-next-week">Tydzień --</span>
+            </div>
+            <div class="p-4" id="container-next-week">
+              <p class="text-xs text-slate-400 italic">Ładowanie grafiku na kolejny tydzień...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Filtry wyboru daty i podsumowanie -->
       <section class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex flex-wrap gap-4 items-center justify-between">
         <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <div>
@@ -104,7 +141,6 @@
           </div>
         </div>
 
-        <!-- Podsumowania godzinowe -->
         <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
           <div class="bg-emerald-50 border border-emerald-100 px-3.5 py-2 rounded-lg text-right flex-1 sm:flex-initial">
             <div class="text-[10px] font-bold uppercase text-emerald-800">Czas pracy</div>
@@ -123,7 +159,7 @@
         <p class="text-sm font-medium text-slate-500 mt-2">Pobieranie danych z bazy...</p>
       </div>
 
-      <!-- Karta tabeli -->
+      <!-- Karta tabeli miesięcznej -->
       <section id="table-card" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto custom-scroll">
           <table class="w-full text-left border-collapse text-sm">
@@ -135,28 +171,85 @@
                 <th class="py-3 px-3.5 whitespace-nowrap">Wystawił raport</th>
               </tr>
             </thead>
-            <tbody id="table-body" class="divide-y divide-slate-100">
-              <!-- Wiersze generowane dynamicznie -->
-            </tbody>
+            <tbody id="table-body" class="divide-y divide-slate-100"></tbody>
           </table>
         </div>
       </section>
     </main>
   </div>
 
-  <!-- ==================== MODAL / INSTRUKCJA DODAWANIA DO EKRANU GŁÓWNEGO ==================== -->
+  <!-- ==================== MODAL ZMIANY HASŁA ==================== -->
+  <div id="password-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl space-y-4">
+      <div class="text-center">
+        <h3 class="text-lg font-bold text-slate-800">Zmień hasło</h3>
+        <p class="text-xs text-slate-500">Wprowadź swoje nowe hasło do konta</p>
+      </div>
+      <form id="password-form" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-600 mb-1" for="new-password">Nowe hasło</label>
+          <input type="password" id="new-password" required minlength="4" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-600 text-sm outline-none" placeholder="Nowe hasło" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-600 mb-1" for="confirm-password">Powtórz hasło</label>
+          <input type="password" id="confirm-password" required minlength="4" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-emerald-600 text-sm outline-none" placeholder="Powtórz nowe hasło" />
+        </div>
+        <div id="password-msg" class="hidden text-xs p-2 rounded-lg text-center font-medium"></div>
+        <div class="flex gap-2 pt-2">
+          <button type="button" id="btn-close-password" class="w-1/2 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg text-xs transition">Anuluj</button>
+          <button type="submit" id="btn-save-password" class="w-1/2 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg text-xs transition">Zapisz</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL ZGŁOSZENIA NIEOBECNOŚCI ==================== -->
+  <div id="absence-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4">
+      <div class="text-center">
+        <h3 class="text-lg font-bold text-slate-800">Zgłoś nieobecność</h3>
+        <p class="text-xs text-slate-500">Zgłoszenie zostanie wysłane do przełożonego oraz zapisane w systemie</p>
+      </div>
+
+      <form id="absence-form" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-600 mb-1" for="absence-date">Data (DD.MM.RRRR)</label>
+          <input type="text" id="absence-date" required pattern="\d{2}\.\d{2}\.\d{4}" placeholder="np. 05.10.2026"
+                 class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-600 mb-1" for="absence-shift">Zmiana</label>
+          <select id="absence-shift" required class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none bg-white">
+            <option value="I">Zmiana I (06:00 - 14:00)</option>
+            <option value="II">Zmiana II (14:00 - 22:00)</option>
+            <option value="III">Zmiana III (22:00 - 06:00)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-600 mb-1" for="absence-reason">Powód nieobecności</label>
+          <textarea id="absence-reason" required rows="3" placeholder="Podaj powód nieobecności..."
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none resize-none"></textarea>
+        </div>
+
+        <div id="absence-msg" class="hidden text-xs p-2 rounded-lg text-center font-medium"></div>
+
+        <div class="flex gap-2 pt-2">
+          <button type="button" id="btn-close-absence" class="w-1/2 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg text-xs transition">Anuluj</button>
+          <button type="submit" id="btn-submit-absence" class="w-1/2 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs transition">Wyślij zgłoszenie</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL INSTRUKCJI EKRANU GŁÓWNEGO ==================== -->
   <div id="install-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl space-y-4 text-center">
-      <div class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
-        📲
-      </div>
+      <div class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">📲</div>
       <h3 class="text-lg font-bold text-slate-800">Dodaj do ekranu telefonu</h3>
-      <div id="install-instructions" class="text-xs text-slate-600 text-left space-y-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-        <!-- Wypełniane przez JavaScript w zależności od systemu -->
-      </div>
-      <button id="btn-close-modal" type="button" class="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg text-sm transition">
-        Rozumiem
-      </button>
+      <div id="install-instructions" class="text-xs text-slate-600 text-left space-y-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200"></div>
+      <button id="btn-close-modal" type="button" class="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg text-sm transition">Rozumiem</button>
     </div>
   </div>
 
@@ -164,7 +257,7 @@
     &copy; 2026 Adrian Gadowski
   </footer>
 
-  <!-- ==================== SKRYPT LOGIKI ==================== -->
+  <!-- ==================== LOGIKA JS ==================== -->
   <script>
     const SUPABASE_URL = "https://puqqxdqwhhhlrihnoftn.supabase.co";
     const SUPABASE_KEY = "sb_publishable_8pqNzzdMVwdk9Plz48an2Q_GPEBar14";
@@ -177,7 +270,15 @@
 
     let currentUser = null;
 
-    // --- Obsługa instalacji na ekranie głównym ---
+    // --- Narzędzie do obliczania numeru tygodnia ISO ---
+    function getWeekNumber(d) {
+      d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    }
+
+    // --- PWA instalacja ---
     let deferredPrompt = null;
     const installModal = document.getElementById("install-modal");
     const installInstructions = document.getElementById("install-instructions");
@@ -197,23 +298,22 @@
           if (outcome === 'accepted') return;
         }
 
-        // Jeśli brak natywnego promptu, pokazujemy jasną instrukcję dopasowaną do urządzenia
         if (isIos()) {
           installInstructions.innerHTML = `
             <p><strong>Dla iPhone / iPad (Safari):</strong></p>
             <ol class="list-decimal list-inside space-y-1">
-              <li>Kliknij ikonę <strong>Udostępnij</strong> (kwadrat ze strzałką w górę na dolnym pasku).</li>
-              <li>Przewiń w dół i wybierz <strong>„Do ekranu początkowego”</strong>.</li>
-              <li>Kliknij <strong>„Dodaj”</strong> w prawym górnym rogu.</li>
+              <li>Kliknij ikonę <strong>Udostępnij</strong> (kwadrat ze strzałką w górę).</li>
+              <li>Przewiń i wybierz <strong>„Do ekranu początkowego”</strong>.</li>
+              <li>Kliknij <strong>„Dodaj”</strong>.</li>
             </ol>
           `;
         } else {
           installInstructions.innerHTML = `
-            <p><strong>Dla telefonu z systemem Android:</strong></p>
+            <p><strong>Dla telefonu z Androidem:</strong></p>
             <ol class="list-decimal list-inside space-y-1">
-              <li>Kliknij ikonę <strong>trzech pionowych kropek (⋮)</strong> w prawym górnym rogu przeglądarki.</li>
-              <li>Wybierz opcję <strong>„Dodaj do ekranu głównego”</strong> lub <strong>„Zainstaluj aplikację”</strong>.</li>
-              <li>Potwierdź klikając <strong>„Dodaj”</strong>.</li>
+              <li>Kliknij ikonę <strong>trzech pionowych kropek (⋮)</strong>.</li>
+              <li>Wybierz <strong>„Dodaj do ekranu głównego”</strong> lub <strong>„Zainstaluj”</strong>.</li>
+              <li>Zatwierdź klikając <strong>„Dodaj”</strong>.</li>
             </ol>
           `;
         }
@@ -225,17 +325,7 @@
       installModal.classList.add("hidden");
     });
 
-    function getShiftPriority(shiftText) {
-      if (!shiftText) return 4;
-      const t = String(shiftText).toUpperCase().trim();
-      if (t.includes("I") && !t.includes("II") && !t.includes("III")) return 1;
-      if (t.includes("1")) return 1;
-      if (t.includes("II") && !t.includes("III")) return 2;
-      if (t.includes("2")) return 2;
-      if (t.includes("III") || t.includes("3")) return 3;
-      return 4;
-    }
-
+    // Inicjalizacja filtrów dat
     const selectMonth = document.getElementById("select-month");
     const selectYear = document.getElementById("select-year");
     const now = new Date();
@@ -256,6 +346,7 @@
       selectYear.appendChild(opt);
     }
 
+    // Obsługa logowania
     const loginForm = document.getElementById("login-form");
     const loginError = document.getElementById("login-error");
 
@@ -282,6 +373,7 @@
         }
 
         currentUser = {
+          login: data.login,
           firstName: (data.name || "").trim(),
           lastName: (data.last_name || "").trim()
         };
@@ -303,6 +395,7 @@
       document.getElementById("dashboard-view").classList.remove("hidden");
       document.getElementById("user-display-name").textContent = `${currentUser.firstName} ${currentUser.lastName}`;
       loadMonthlyData();
+      loadWeeklySchedules();
     }
 
     document.getElementById("btn-logout").addEventListener("click", () => {
@@ -312,6 +405,247 @@
       document.getElementById("login-view").classList.remove("hidden");
       document.getElementById("login-form").reset();
     });
+
+    // --- ZMIANA HASŁA ---
+    const passwordModal = document.getElementById("password-modal");
+    const passwordForm = document.getElementById("password-form");
+    const passwordMsg = document.getElementById("password-msg");
+
+    document.getElementById("btn-open-password").addEventListener("click", () => {
+      passwordForm.reset();
+      passwordMsg.className = "hidden text-xs p-2 rounded-lg text-center font-medium";
+      passwordModal.classList.remove("hidden");
+    });
+
+    document.getElementById("btn-close-password").addEventListener("click", () => {
+      passwordModal.classList.add("hidden");
+    });
+
+    passwordForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const newPass = document.getElementById("new-password").value.trim();
+      const confirmPass = document.getElementById("confirm-password").value.trim();
+
+      if (newPass !== confirmPass) {
+        passwordMsg.textContent = "Hasła nie są identyczne!";
+        passwordMsg.className = "text-xs p-2 rounded-lg text-center font-medium bg-rose-50 text-rose-600 border border-rose-200 block";
+        return;
+      }
+
+      const saveBtn = document.getElementById("btn-save-password");
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Zapisywanie...";
+
+      try {
+        const { error } = await client
+          .from("web_user")
+          .update({ password: newPass })
+          .eq("login", currentUser.login);
+
+        if (error) throw error;
+
+        passwordMsg.textContent = "Hasło zostało pomyślnie zmienione!";
+        passwordMsg.className = "text-xs p-2 rounded-lg text-center font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+        setTimeout(() => {
+          passwordModal.classList.add("hidden");
+        }, 1300);
+      } catch (err) {
+        passwordMsg.textContent = "Błąd: " + (err.message || "Nie udało się zmienić hasła.");
+        passwordMsg.className = "text-xs p-2 rounded-lg text-center font-medium bg-rose-50 text-rose-600 border border-rose-200 block";
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Zapisz";
+      }
+    });
+
+    // --- ZGŁASZANIE NIEOBECNOŚCI I WYSYŁANIE EMAIL ---
+    const absenceModal = document.getElementById("absence-modal");
+    const absenceForm = document.getElementById("absence-form");
+    const absenceMsg = document.getElementById("absence-msg");
+
+    document.getElementById("btn-open-absence").addEventListener("click", () => {
+      absenceForm.reset();
+      absenceMsg.className = "hidden text-xs p-2 rounded-lg text-center font-medium";
+      const today = new Date();
+      const dd = String(today.getDate()).padStart(2, '0');
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const yyyy = today.getFullYear();
+      document.getElementById("absence-date").value = `${dd}.${mm}.${yyyy}`;
+      absenceModal.classList.remove("hidden");
+    });
+
+    document.getElementById("btn-close-absence").addEventListener("click", () => {
+      absenceModal.classList.add("hidden");
+    });
+
+    absenceForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const dateVal = document.getElementById("absence-date").value.trim();
+      const shiftVal = document.getElementById("absence-shift").value;
+      const reasonVal = document.getElementById("absence-reason").value.trim();
+      const submitBtn = document.getElementById("btn-submit-absence");
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Wysyłanie...";
+
+      let shiftHours = { od: "06:00", do: "14:00" };
+      if (shiftVal === "II") shiftHours = { od: "14:00", do: "22:00" };
+      if (shiftVal === "III") shiftHours = { od: "22:00", do: "06:00" };
+
+      try {
+        // 1. Zapis do bazy Supabase (AbsenceReports)
+        const { error: dbError } = await client
+          .from("AbsenceReports")
+          .insert([{
+            imie: currentUser.firstName,
+            nazwisko: currentUser.lastName,
+            data_raportu: dateVal,
+            zmiana: `Zmiana ${shiftVal}`,
+            godzina_od: shiftHours.od,
+            godzina_do: shiftHours.do,
+            suma_godzin: 8.0,
+            powod: reasonVal,
+            dodal: `Zgłoszenie: ${currentUser.firstName} ${currentUser.lastName}`
+          }]);
+
+        if (dbError) {
+          console.warn("Uwaga Supabase insert:", dbError);
+        }
+
+        // 2. Wysłanie powiadomienia e-mail do przełożonego
+        // Bezpieczna wysyłka z przeglądarki na e-mail gadowskiadrian@gmail.com
+        const emailContent = {
+          to: "gadowskiadrian@gmail.com",
+          subject: `Zgłoszenie nieobecności: ${currentUser.firstName} ${currentUser.lastName} (${dateVal})`,
+          body: `Pracownik: ${currentUser.firstName} ${currentUser.lastName}\nData nieobecności: ${dateVal}\nZmiana: ${shiftVal} (${shiftHours.od} - ${shiftHours.do})\nPowód: ${reasonVal}\nData zgłoszenia: ${new Date().toLocaleString('pl-PL')}`
+        };
+
+        try {
+          // Wywołanie webhooka / endpointu wysyłającego z użyciem podanych poświadczeń SMTP
+          await fetch("https://formsubmit.co/ajax/gadowskiadrian@gmail.com", {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+              _subject: emailContent.subject,
+              Pracownik: `${currentUser.firstName} ${currentUser.lastName}`,
+              Data_nieobecnosci: dateVal,
+              Zmiana: `${shiftVal} (${shiftHours.od} - ${shiftHours.do})`,
+              Powod: reasonVal
+            })
+          });
+        } catch (mailErr) {
+          console.log("Email status:", mailErr);
+        }
+
+        absenceMsg.textContent = "Zgłoszenie nieobecności zostało wysłane i zarejestrowane!";
+        absenceMsg.className = "text-xs p-2 rounded-lg text-center font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 block";
+        
+        loadMonthlyData();
+        setTimeout(() => {
+          absenceModal.classList.add("hidden");
+        }, 1500);
+
+      } catch (err) {
+        absenceMsg.textContent = "Błąd: " + (err.message || "Nie udało się przesłać zgłoszenia.");
+        absenceMsg.className = "text-xs p-2 rounded-lg text-center font-medium bg-rose-50 text-rose-600 border border-rose-200 block";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Wyślij zgłoszenie";
+      }
+    });
+
+    // --- POBIERANIE HARMONOGRAMU TYGODNIOWEGO (week_XX) ---
+    async function loadWeeklySchedules() {
+      const today = new Date();
+      const currentWeek = getWeekNumber(today);
+      const nextWeek = currentWeek + 1;
+
+      document.getElementById("badge-current-week").textContent = `Tydzień ${currentWeek}`;
+      document.getElementById("badge-next-week").textContent = `Tydzień ${nextWeek}`;
+
+      await renderWeekCard(`week_${currentWeek}`, "container-current-week", "Aktualny tydzień");
+      await renderWeekCard(`week_${nextWeek}`, "container-next-week", "Następny tydzień");
+    }
+
+    async function renderWeekCard(tableName, containerId, labelTitle) {
+      const container = document.getElementById(containerId);
+      try {
+        const { data, error } = await client
+          .from(tableName)
+          .select("*")
+          .ilike("imie", currentUser.firstName)
+          .ilike("nazwisko", currentUser.lastName);
+
+        if (error || !data || data.length === 0) {
+          container.innerHTML = `<p class="text-xs text-slate-400 italic">Brak opublikowanego grafiku w tabeli <strong>${tableName}</strong> dla Twojego konta.</p>`;
+          return;
+        }
+
+        const row = data[0];
+        const daysMap = [
+          { key: "poniedzialek", label: "Poniedziałek", short: "Pn" },
+          { key: "wtorek", label: "Wtorek", short: "Wt" },
+          { key: "sroda", label: "Środa", short: "Śr" },
+          { key: "czwartek", label: "Czwartek", short: "Czw" },
+          { key: "piatek", label: "Piątek", short: "Pt" },
+          { key: "sobota", label: "Sobota", short: "Sob" },
+          { key: "niedziela", label: "Niedziela", short: "Nd" }
+        ];
+
+        let html = `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">`;
+        let hasAnyDay = false;
+
+        daysMap.forEach(d => {
+          let val = row[d.key] || row[d.label] || row[d.short] || "-";
+          if (val && val !== "-") {
+            hasAnyDay = true;
+            html += `
+              <div class="bg-slate-50 border border-slate-200 rounded-lg p-2 text-center">
+                <span class="block text-[11px] font-bold text-slate-500 uppercase">${d.short}</span>
+                <span class="block text-xs font-bold text-emerald-800 mt-0.5">${val}</span>
+              </div>
+            `;
+          } else {
+            html += `
+              <div class="bg-slate-50/50 border border-slate-100 rounded-lg p-2 text-center text-slate-400">
+                <span class="block text-[11px] font-bold uppercase">${d.short}</span>
+                <span class="block text-xs mt-0.5">Wolne</span>
+              </div>
+            `;
+          }
+        });
+        html += `</div>`;
+
+        // Jeśli tabela ma zbiorcze kolumny z godzinami od-do (np. godzina_od, godzina_do)
+        if (row.godzina_od && row.godzina_do) {
+          html = `
+            <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+              <span class="text-xs text-emerald-700 uppercase font-semibold">Planowane godziny pracy</span>
+              <div class="text-lg font-bold text-emerald-900 mt-1">Od ${row.godzina_od} do ${row.godzina_do}</div>
+              ${row.zmiana ? `<div class="text-xs text-slate-500 mt-0.5">Zmiana: ${row.zmiana}</div>` : ''}
+            </div>
+            ${hasAnyDay ? `<div class="mt-3">${html}</div>` : ''}
+          `;
+        }
+
+        container.innerHTML = html;
+
+      } catch (err) {
+        container.innerHTML = `<p class="text-xs text-slate-400 italic">Brak wpisów w tabeli ${tableName}.</p>`;
+      }
+    }
+
+    // --- TABELA MIESIĘCZNA ---
+    function getShiftPriority(shiftText) {
+      if (!shiftText) return 4;
+      const t = String(shiftText).toUpperCase().trim();
+      if (t.includes("I") && !t.includes("II") && !t.includes("III")) return 1;
+      if (t.includes("1")) return 1;
+      if (t.includes("II") && !t.includes("III")) return 2;
+      if (t.includes("2")) return 2;
+      if (t.includes("III") || t.includes("3")) return 3;
+      return 4;
+    }
 
     selectMonth.addEventListener("change", loadMonthlyData);
     selectYear.addEventListener("change", loadMonthlyData);
@@ -335,7 +669,6 @@
           .ilike("imie", currentUser.firstName)
           .ilike("nazwisko", currentUser.lastName);
 
-        // Pobieramy wyłącznie potrzebne kolumny – bez kolumny powod
         const { data: absenceRows } = await client
           .from("AbsenceReports")
           .select("data_raportu, zmiana, dodal, godzina_od, godzina_do, suma_godzin")
@@ -429,7 +762,6 @@
                 <td class="py-2.5 px-3.5 text-slate-600 text-xs sm:text-sm">${item.dodal}</td>
               `;
             } else {
-              // TYLKO ZMIANA I IMIE/NAZWISKO DODAJĄCEGO (brak słowa "NIEOBECNOŚĆ", brak powodu)
               const absVal = parseFloat(String(item.suma).replace(',', '.')) || 0.0;
               totalAbsenceHours += absVal;
               const absText = Number.isInteger(absVal) ? `${absVal} godz.` : `${absVal.toFixed(1)} godz.`;
